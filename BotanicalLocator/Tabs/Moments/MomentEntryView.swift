@@ -8,6 +8,7 @@
 import SwiftUI
 //  PhotosUI provides basic access to the photo library on the device. The framework handles requesting permissions and manages the interaction.
 import PhotosUI
+import SwiftData
 
 struct MomentEntryView: View {
     @State private var title = ""  //  Entry title
@@ -16,6 +17,13 @@ struct MomentEntryView: View {
     //  PhotosPickerItem represents the selected image from the photo library. It is used to save the image.
     @State private var newImage: PhotosPickerItem?
     
+    @State private var isShowingCancelConfirmation = false  //  state variable to control a confirmation
+    
+    //  Dismiss the screen if successful save moment
+    @Environment(\.dismiss) private var dismiss
+    //  Access DataContainer through the environment.
+    @Environment(DataContainer.self) private var dataContainer
+    
     var body: some View {
         NavigationStack {
             ScrollView {  //  Needed in order to keep content accessible when the keyboard is shown.
@@ -23,6 +31,51 @@ struct MomentEntryView: View {
             }
             .scrollDismissesKeyboard(.interactively)  //  To dismiss the keyboard when it’s scrolled offscreen.
             .navigationTitle("Grateful For")
+            //  Add toolbar with a button to let people save their entry.
+            .toolbar {
+                
+                //  Add a cancel button so people can discard a new entry instead of saving. Instead of dismissing immediately, use state variable isShowingCancelConfirmation to control a confirmation.
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel", systemImage: "xmark") {
+                        //  Improve the cancel action by dismissing immediately if no data is entered.
+                        if title.isEmpty, note.isEmpty, imageData == nil {
+                            dismiss()
+                        } else {
+                            isShowingCancelConfirmation = true
+                        }
+                    }
+                    //  Present a confirmationDialog so people don’t accidentally discard information they’ve entered.
+                    .confirmationDialog("Discard Moment", isPresented: $isShowingCancelConfirmation) {
+                        Button("Discard Moment", role: .destructive) {
+                            dismiss()  //  Dismiss the view after discarding an entry.
+                            
+                        }
+                    }
+                }
+
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Add", systemImage: "checkmark") {
+                        //  In the button’s action closure, create a moment using the data from your state properties.
+
+                        //  create a moment using the data from the state properties
+                        let newMoment = Moment(
+                            title: title,
+                            note: note,
+                            imageData: imageData,
+                            timestamp: .now
+                        )
+                        //  Insert the save moment into the model context, try to save it
+                        dataContainer.context.insert(newMoment)
+                        do {
+                            try dataContainer.context.save()
+                            dismiss()
+                        } catch {
+                            // Don't dismiss
+                        }
+                    }
+                    .disabled(title.isEmpty)  //  Require the title by disabling the toolbar button when the title is empty.
+                }
+            }
         }
     }
     
@@ -34,7 +87,7 @@ struct MomentEntryView: View {
                 if let imageData, let uiImage = UIImage(data: imageData) {
                     Image(uiImage: uiImage)
                         .resizable()
-                        .scaledToFit()  //  maintain the aspect ratio of the selected photo.
+                        .scaledToFit()  //  maintain the aspect ratio of the selected photo. If there is no selected photo, continue displaying the photo icon.
                 } else {
                     Image(systemName: "photo.badge.plus.fill")
                         .font(.largeTitle)
@@ -80,5 +133,8 @@ struct MomentEntryView: View {
 }
 
 #Preview {
-    MomentEntryView()
+     MomentEntryView()
+    //use the .sampleDataContainer() modifier to set up SwiftData and sample moment entries for the preview.
+    .sampleDataContainer()
+    
 }

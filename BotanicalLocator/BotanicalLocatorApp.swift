@@ -7,7 +7,7 @@
 
 import SwiftUI
 
-@main
+//  @main
 struct BotanicalLocatorApp: App {
     var body: some Scene {
         WindowGroup {
